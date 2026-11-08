@@ -1,0 +1,24 @@
+{
+  "rtl_version": "P7",
+  "target_frequency_mhz": 150,
+  "contest_qualified": false,
+  "functional": {"passed": null, "execution_status": "not_started"},
+  "synthesis": {"timing_pass": null, "area_pass": null, "execution_status": "not_started"},
+  "sdf_pass": null,
+  "formality_pass": null,
+  "rtl_changes_from_p6": ["kwt43_xram.sv", "kwt43_wram.sv", "kwt_e203_soc_top.v"],
+  "testbenches_unchanged_from_p6": true,
+  "constraints_and_compile_policy_unchanged_from_p6": true,
+  "p6_primary_reference": {
+    "scope": "Primary mapping conditions only",
+    "core_setup_slack_ns": 0.000181675,
+    "logic_to_sram_setup_slack_ns": 0.00534868,
+    "sram_to_logic_setup_slack_ns": 0.0000858307,
+    "logic_to_sram_hold_slack_ns": -0.14153562,
+    "reset_output_hold_slack_ns": -0.02616428,
+    "hold_violating_endpoints": 401,
+    "max_transition_report_rows": 4242,
+    "max_capacitance_report_rows": 117,
+    "total_cell_area_um2": 4001841.920592
+  }
+}
