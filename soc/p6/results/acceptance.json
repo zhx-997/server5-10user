@@ -36,6 +36,14 @@
     "new_logic_area_upper_bound_mm2": 1.020569995625,
     "area_pass": true,
     "area_bound_scope": "Subtract only 24 RAMSP8KX32 and 8 RAMSP4KX64 reused CPU/shared SRAM macros; count all remaining CPU logic, peripherals, new interfaces and accelerator against the limit.",
+    "original_platform_tcm": {
+      "archive": "e203_hbirdv2-master_1013_update_sim.zip",
+      "member": "e203_hbirdv2-master/rtl/e203/core/config.v",
+      "itcm_address_width_bits": 18,
+      "dtcm_address_width_bits": 18,
+      "configured_bytes_each": 262144,
+      "config_matches_original_archive_byte_for_byte": true
+    },
     "qualified_frequency_mhz": null
   },
   "p6_synthesis": {
