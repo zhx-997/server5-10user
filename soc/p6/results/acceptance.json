@@ -1,0 +1,49 @@
+{
+  "rtl_version": "P6",
+  "target_frequency_mhz": 150,
+  "contest_qualified": false,
+  "p6_functional": {
+    "passed": true,
+    "tests": 10,
+    "soc_tasks": 12,
+    "checked_words": 58547,
+    "rom_boots": 2,
+    "soc_log_sha256": "7c72cc8896c24a0371bdc833ec5c8869f4ad9333499fa0f9a9553bd7eb53b7ee",
+    "verified_manifest_sha256": "e4dc3a4fa5fc79a965dae94ae3d91c72f4c9de648aa8d9ff8054fd6e813b97d",
+    "lsu_requests_accepted": 271210,
+    "lsu_requests_consumed": 271210,
+    "lsu_pending_at_end": 0,
+    "workload_cycles_12_tasks": 1617436
+  },
+  "p5_same_workload": {
+    "workload_cycles_12_tasks": 1571784,
+    "soc_log_sha256": "56d2e0ae23c04cb4cc07a61fd59f95a064439e05817bd660ef4bf1d92fc1e41e"
+  },
+  "p5_completed_synthesis": {
+    "combinations": 35,
+    "timing_pass": false,
+    "worst_setup_slack_ns": -1.82391548,
+    "worst_setup_condition": "SS 0.99 V -40 C / CMAX",
+    "worst_hold_slack_ns": -0.10962774,
+    "worst_hold_condition": "FF 1.21 V 125 C / CMIN",
+    "sram_instances": 104,
+    "cell_area_library_units": 3987171.808121,
+    "accelerator_inclusive_area_library_units": 868960.2108,
+    "area_unit": "um^2, checked against LEF width times height",
+    "soc_cell_area_mm2": 3.987171808121,
+    "accelerator_inclusive_area_mm2": 0.8689602108,
+    "contest_area_limit_mm2": 2.25,
+    "new_logic_area_upper_bound_mm2": 1.020569995625,
+    "area_pass": true,
+    "area_bound_scope": "Subtract only 24 RAMSP8KX32 and 8 RAMSP4KX64 reused CPU/shared SRAM macros; count all remaining CPU logic, peripherals, new interfaces and accelerator against the limit.",
+    "qualified_frequency_mhz": null
+  },
+  "p6_synthesis": {
+    "script_version": "astra_p6r1",
+    "script_sha256": "b182e38f151200dfe73acafe31280e85ed25bea6ebf6e5a24d88e1ba3abf151b",
+    "timing_pass": null,
+    "area_pass": null,
+    "sdf_pass": null,
+    "formality_pass": null
+  }
+}
