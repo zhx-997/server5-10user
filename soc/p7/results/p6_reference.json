@@ -1,0 +1,21 @@
+{
+  "rtl_version": "P6",
+  "scope": "已读取服务器最终报告的摘要，用于解释优化依据；不计入当前版本验收",
+  "source_reports": ["reports/primary/path_groups.tsv", "reports/violations.rpt", "corner_checks/<PVT>/<RC>/reports/model_violations.rpt"],
+  "pvt_rc_combinations": 35,
+  "setup_passing_combinations": 35,
+  "hold_failing_combinations": 35,
+  "worst_setup_slack_ns": 0.0000858307,
+  "worst_setup_condition": "SS 0.99 V -40 C / CMAX",
+  "worst_hold_slack_ns_rounded": -0.14004,
+  "worst_hold_condition": "FF 1.21 V 125 C / CMIN",
+  "unique_hold_endpoints_all_corners": {"total": 391, "x_sram": 48, "w_sram": 207, "y_sram": 74, "itcm": 51, "dtcm": 1, "shared_sram": 0, "top_outputs": 10},
+  "primary_electrical_report_rows": {"max_transition": 4242, "max_capacitance": 117},
+  "transition_example": {"net": "u_kwt/core/values[29]", "limit_ns": 0.76, "actual_ns": 4.01},
+  "capacitance_example": {"net": "u_kwt/core/values[12]", "limit_pf": 0.06, "actual_pf": 0.13},
+  "top_output_hold_worst_ns": {"sys_rst_n": -0.02651589, "io_pads_gpioB_o_oe[20]": -0.00363807, "io_pads_gpioB_o_oe[24]": -0.00805482, "io_pads_gpioB_o_oe[25]": -0.00834142, "io_pads_gpioB_o_oval[20]": -0.00681368, "io_pads_gpioB_o_oval[21]": -0.00801915, "io_pads_gpioB_o_oval[24]": -0.00687259, "io_pads_gpioB_o_oval[25]": -0.00714746, "io_pads_gpioB_o_oval[26]": -0.00892240, "io_pads_gpioB_o_oval[27]": -0.00850575},
+  "mapped_total_cell_area_um2": 4001841.920592,
+  "total_area_includes_reused_platform": true,
+  "contest_qualified": false,
+  "current_version_qualification_evidence": false
+}

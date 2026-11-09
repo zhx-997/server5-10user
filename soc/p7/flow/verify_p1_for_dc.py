@@ -10,7 +10,8 @@ args = parser.parse_args()
 candidate = args.candidate.resolve(strict=True)
 result = json.loads((candidate / "verification_pass.json").read_text())
 required = {"unit_20304007", "unit_7919", "unit_65537", "unit_104729", "tb_soc_boot", "tb_soc_boot_p5_comparison",
-            "tb_kwt_integrated", "tb_kwt_integrated_wait", "tb_kwt_integrated_zero", "tb_kwt_integrated_public"}
+            "tb_kwt_integrated", "tb_kwt_integrated_wait", "tb_kwt_integrated_zero", "tb_kwt_integrated_public",
+            "tb_mul16_pipeline", "tb_kwt_stream_dot"}
 records = result["rtl_tests"]
 if result["passed"] is not True or {r["test"] for r in records} != required or len(records) != len(required):
     raise RuntimeError("完整功能验证没有通过")

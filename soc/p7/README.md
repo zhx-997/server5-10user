@@ -1,60 +1,53 @@
-# E203 + KWT 整机 P7
+# E203 + KWT：NICE 接口与 RTL 时序优化
 
-P7 基于 P6，修改输入缓存、权重缓存和外部复位输出三处 RTL。输入、权重 SRAM 的使能、地址和写数据在时钟下降沿保存，宏继续在上升沿执行读写；`sys_rst_n` 保留异步置位复位、同步释放，并将释放安排在下降沿。新增的半周期路径需要通过原有 150 MHz 约束检查。
+本版以已交付的 `5530ae6` 为基线。E203 通过 NICE 自定义指令启动加速器，访存继续经过原有 LSU 和系统总线；固件、地址分配、CPU 指令执行、定时器和 CPU 时钟门控均保持 P7 实现。
 
-本目录用于提交和验证这次 RTL 修改。实际验收状态见 `results/acceptance.json`。P6 已完成十项功能测试；P6 主条件仍有 401 个保持违例端点，包括输入、权重、输出 SRAM、ITCM、DTCM 和顶层输出。P7 的三处修改范围是输入缓存、权重缓存和 `sys_rst_n`。
+当前为开发交接版本。用户要求先完成 RTL 和功能验证，暂停 DC；本版尚无完整 SoC、综合、SDF 或 Formality 通过记录。接手先读 [交接说明](HANDOFF.txt)、[工作规范](AGENTS.md) 和 [验收记录](results/acceptance.json)。CPU 自带 GPIO、复位结构保持；SRAM 优化保持宏时钟相位，在前置寄存器和外围接口实施。
 
-## 队友如何配置目录
+## RTL
 
-只编辑 `flow/paths.tcl`。仿真、综合和带延迟仿真共同读取该文件。`PIPELINE` 默认由配置文件自身位置确定，`rtl/`、`tb/`、`firmware/`、`reference/` 随整个 P7 目录移动。十九个交付 RTL 均从这里读取，其余 CPU 和加速器源码从配置中的原工程读取。
+- `sirv_sram_icb_ctrl.v`：通用 SRAM 接口适配草稿。先保存完整请求，再在下降沿驱动 SRAM，返回数据与来源信息一同保存。两个事务额度覆盖全部内部级，原有 ITCM 响应级仍保留。保留同相门控，但请求队列、响应队列和门控使能时序有改动，范围超过单纯增加前置寄存器；组件测试已通过，最小外围改动方案仍需审查。
+- `kwt43_xram.sv`、`kwt43_wram.sv`：读有效标志取自与 SRAM 请求相同的下降沿采样。
+- `kwt43_yram.sv`：结果 SRAM 的使能、地址、数据在下降沿寄存；读页选择与该请求对齐。
+- `kwt43_core.sv`：向结果 SRAM 传递复位，原调度保持不变。
+- `kwt_mul16_pipe.sv`：有符号 16 位乘法使用五级流水，每周期可以接收一组输入，数值精度保持不变。
+- `kwt43_icb_master.sv`：单事务四状态控制，命令和响应分别寄存，握手由状态寄存器产生。对应 `tb_icb_registered.sv` 已编写，尚未运行。
 
-| 配置项 | 填写的内容 |
-|---|---|
-| `OFFICIAL` | 竞赛 E203 源码，目录中含 `core`、`general`、`subsys`、`perips`、`debug`、`mems`、`fab` |
-| `ACCEL`、`VECTOR_PATH` | v4.3 工程和已验证的测试向量 |
-| `BASELINE`、`PREVIOUS` | E2、P5 验证目录，保留原源码清单，用于四类总线测试和同条件性能比较 |
-| `PLATFORM_RTL` | 原平台 RTL，供修改依据检查使用 |
-| `LIB_PATH` | SMIC40 HVT 标准单元 `.db` |
-| `SMALL_SRAM_ORIGINAL`、`SMALL_SRAM_DERIVED` | 小型 SRAM 原始库、补齐角的派生库 |
-| `LARGE_SRAM_ROOT` | RAMSP8KX32、RAMSP4KX64、ROM1KX32、ROM2KX32 的宏目录，每种宏含 `db` |
-| 物理模型配置项 | 同工艺技术文件、Milkyway 参考库、五组 TLUPlus、层映射、LEF 和校验记录 |
-| `DC`、`VCS`、`PYTHON` | 已安装工具的可执行文件 |
-| `RUN_ROOT`、`REPORT_ROOT` | 本次版本的综合结果和执行日志目录 |
+其余本目录 RTL 保持交付 P7 的实现。综合和仿真均只读取每个模块的一份实现。CPU 官方源码来自 `OFFICIAL`；SRAM 实例在综合中链接 `.db`，在功能仿真中链接厂家模型。
 
-现有目录结构与比赛服务器相同时，保留默认值。迁移已有 E2/P5 验证记录时，在 `MANIFEST_PATH_MAP` 中成对填写旧路径前缀与新路径前缀；脚本仍核对原文件 SHA256。Python 通过系统 `tclsh` 解释配置，支持服务器已安装的 Tcl 8.5。
+## 目录配置与运行
 
-工艺库、厂家宏模型、原始验证目录和测试向量需要由队友从授权的比赛环境取得。配置、源码位置发生变化后，重新执行功能验证，生成当前位置的真实编译清单。综合前逐项核对这些清单。
+迁移时编辑 `flow/paths.tcl`：填写官方 CPU、v4.3 加速器依赖、测试向量、标准单元和 SRAM 库、SMIC40 物理库与 RC 文件、工具和结果目录。工程自身目录由该配置文件的位置确定。完整验证还使用 E2/P5 基准源码及清单；这些依赖与受限工艺模型在比赛服务器，目录列表见交接说明。
 
-## 执行
-
-在 P7 目录执行：
+在本目录运行：
 
 ```sh
 python3 flow/run_p1_verification.py
-python3 flow/run_p3_dc.py
 ```
 
-第一条运行原有十项 VCS 测试：四组 ITCM 随机测试、P7 整机启动和 12 项 NICE 任务、P5 同条件比较、四种加速器总线测试。第二条先核对功能结果，再执行结构检查，结构检查成功后开始完整综合。任何阶段失败均立即停止。
+完整功能脚本当前配置 12 项测试：四组 ITCM、乘法、点积、真实 CPU 启动及 12 项 NICE 矩阵任务、原 P5 同条件对照，以及四种总线条件的矩阵和错误保护测试。新 ICB 单元测试尚未接入此集合，接手应先完成它及 SRAM 边界验证，再同步两个验证入口的测试集合。
 
-更换整份配置可使用 `--paths /实际位置/paths.tcl`。直接调用 DC 时，用 `SOC_PATHS` 指定同一文件：
+已执行的本地组件结果为 ITCM 26,600 笔完成事务、乘法 16,449 组、点积 64 组；见 [日志摘录](results/local_component_checks.txt)。可用 `flow/run_local_units.py` 选择组件，`--suite icb` 用于新 ICB TB。完整整机结果单独记录。
 
-```sh
-SOC_PATHS=/实际位置/paths.tcl dc_shell -topographical_mode -f flow/dc_synth.tcl
-```
+用户恢复综合后才运行 `python3 flow/run_p3_dc.py`。综合入口核对功能日志、实际编译源码和输入校验值；任一项失败即终止。
 
-所有 35 组时序通过后，用实际综合目录执行带延迟整机检查：
+`verification/`、`work/` 保存本次运行记录。每次完整测试使用独立的工程版本目录，避免覆盖已有证据。`package_manifest.json` 记录交付包文件，迁移目录只调整 `paths.tcl`。
 
-```sh
-python3 flow/run_p1_sdf.py --synthesis /实际位置/本次综合目录 \
-  --candidate /实际位置/P7目录 --testbench tb/tb_soc_gate.sv
-```
+源码或说明修改后，使用 `python3 flow/update_package_manifest.py` 生成交付清单；使用 `--check` 检查清单。清单更新只记录文件内容，不生成任何功能通过标志。`results/source_sha256.json` 还包括交付时的路径配置；可迁移的 `package_manifest.json` 排除 `flow/paths.tcl`，实际测试仍单独核对配置。
 
-每个 P7 目录仅用于一次完整验证，结果保存在自身的 `verification/` 和 `work/`。重跑时复制交付文件到新的版本目录，重新填写路径并运行。
+## DC 脚本
 
-## 固定的综合条件
+`flow/dc_synth.tcl` 按设置、约束、综合、报告四部分组织。
 
-沿用 P6 的 150 MHz 主时钟，建立/保持不确定度 0.300/0.100 ns，输入最大/最小延迟 1.000/0.100 ns，输出 1.000/−0.100 ns；JTAG 为 10 MHz，AON 为 32.768 kHz。驱动单元为 `INV1_12TH40`，输出负载为 0.003396 pF。
+1. 设置标准单元、SRAM、RTL、头文件路径和链接库，加载同工艺 Milkyway 与 TLUPlus，然后执行 `analyze`、`elaborate`、`link`。
+2. 主时钟 150 MHz，JTAG 10 MHz，常开时钟 32.768 kHz。沿用原接口预算：建立/保持不确定度 0.300/0.100 ns，输入最大/最小延迟 1.000/0.100 ns，输出最大/最小延迟 1.000/−0.100 ns。输入驱动 `INV1_12TH40`，输出负载 0.003396 pF。保留复位与异步输入边界、SRAM 路径分组。
+3. 只执行一次 `compile_ultra -no_autoungroup`，按 RTL 中的寄存级综合。
+4. 输出 Verilog、DDC、SDC、SDF、SVF，以及面积、建立、保持、电气约束和连接检查报告。
 
-标准单元使用 SMIC40 HVT，SRAM 使用实际宏 `.db`；互连使用 1P9M_2TM Milkyway 与 TLUPlus。先执行原有 `compile_ultra -no_autoungroup`，再执行原有两次增量综合；没有启用 retime。最终对同一网表分析七个 PVT 与五个 RC 的 35 个组合。测试平台、功能判据、约束和综合策略沿用 P6。
+建立使用 SS 0.99 V/−40 ℃、CMAX；保持使用 FF 1.21 V/125 ℃、CMIN，来源为 P6 的全角最差结果。本脚本报告这组最大/最小条件，`PRIMARY_TIMING_PASS` 只标记本组时序结果。
 
-`package_manifest.json` 核对 RTL、测试平台、固件、参考源码和流程脚本。可编辑的 `paths.tcl` 单独记录到每次实际验证清单。`results/source_sha256.json` 提供本次提交文件的下载校验值。
+脚本包含工艺模型加载、多时钟和正常报告命令；电路结构与寄存级只在 RTL 中定义。综合流程不执行手工插入缓冲器、替换门或重新连接网表的操作，也不启用 retime 或增量综合。
+
+## 比赛验收
+
+本版功能与综合结果见 `results/acceptance.json`。比赛要求 150 MHz、规定数值精度和新增加速器及接口与内部 SRAM 面积不超过 2.25 mm²。吞吐量包含输入与参数装载、总线等待、CPU 调度和结果写回。整机功耗需要同一网表、同一计时窗口内的活动数据，不能由面积或频率推算。

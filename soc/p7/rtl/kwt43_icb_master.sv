@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
-// One transaction in flight. A response and the following command may turn
-// over on the same edge. Both command and response skid storage are explicit.
+// 单事务 ICB 主机：命令和响应分别寄存，两个方向均由状态寄存器控制握手。
 module kwt43_icb_master (
   input wire clk,rst_n,req_valid,output wire req_ready,
   input wire [31:0] req_addr,req_wdata,input wire req_read,
@@ -14,38 +13,36 @@ module kwt43_icb_master (
   reg [1:0] state;
   reg [31:0] addr_q,data_q,response_q;
   reg read_q,error_q;
-  wire old_response=state==WAIT_RSP && rsp_valid;
-  wire clear_old=(old_response || state==HOLD_RSP) && ret_ready;
-  wire permit=rst_n && (state==EMPTY || (state==WAIT_RSP && clear_old));
-  assign req_ready=permit;
-  assign cmd_valid=rst_n && (state==SEND || (permit && req_valid));
-  assign cmd_addr=state==SEND?addr_q:req_addr;
-  assign cmd_wdata=state==SEND?data_q:req_wdata;
-  assign cmd_read=state==SEND?read_q:req_read;
+  wire accept=req_valid&&req_ready;
+  wire command=cmd_valid&&cmd_ready;
+  wire response=rsp_valid&&rsp_ready;
+  assign req_ready=rst_n&&state==EMPTY;
+  assign cmd_valid=rst_n&&state==SEND;
+  assign cmd_addr=addr_q;
+  assign cmd_wdata=data_q;
+  assign cmd_read=read_q;
   assign cmd_size=2'b10;
-  wire external_command=cmd_valid && cmd_ready;
-  // 响应暂存寄存器空闲时提前接收响应，ready 不依赖命令握手。
-  // 总线只对已接受的命令返回响应；已有暂存响应时停止接收下一项。
-  assign rsp_ready=rst_n && state!=HOLD_RSP;
-  wire incoming=rsp_valid && rsp_ready;
-  assign ret_valid=rst_n && (state==HOLD_RSP || incoming);
-  assign ret_rdata=state==HOLD_RSP?response_q:rsp_rdata;
-  assign ret_err=state==HOLD_RSP?error_q:rsp_err;
+  assign rsp_ready=rst_n&&(state==SEND||state==WAIT_RSP);
+  assign ret_valid=rst_n&&state==HOLD_RSP;
+  assign ret_rdata=response_q;
+  assign ret_err=error_q;
   assign idle=state==EMPTY;
-  wire accepted=req_valid && req_ready;
-  always @(posedge clk or negedge rst_n) begin
-    if(!rst_n) state<=EMPTY;
-    else if(accepted) begin
-      if(!cmd_ready)state<=SEND;
-      else if(state==EMPTY && incoming)state<=ret_ready?EMPTY:HOLD_RSP;
-      else state<=WAIT_RSP;
-    end else if(state==SEND) begin
-      if(external_command)state<=incoming?(ret_ready?EMPTY:HOLD_RSP):WAIT_RSP;
-    end else if(incoming)state<=ret_ready?EMPTY:HOLD_RSP;
-    else if(state==HOLD_RSP && ret_ready)state<=EMPTY;
+  always @(posedge clk or negedge rst_n)begin
+    if(!rst_n)state<=EMPTY;
+    else case(state)
+      EMPTY:if(accept)state<=SEND;
+      SEND:if(command)state<=response?HOLD_RSP:WAIT_RSP;
+      WAIT_RSP:if(response)state<=HOLD_RSP;
+      HOLD_RSP:if(ret_ready)state<=EMPTY;
+      default:state<=EMPTY;
+    endcase
   end
-  always @(posedge clk) begin
-    if(accepted && !cmd_ready)begin addr_q<=req_addr;data_q<=req_wdata;read_q<=req_read;end
-    if(incoming && !ret_ready)begin response_q<=rsp_rdata;error_q<=rsp_err;end
+  always @(posedge clk)begin
+    if(accept)begin addr_q<=req_addr;data_q<=req_wdata;read_q<=req_read;end
+    if(response)begin response_q<=rsp_rdata;error_q<=rsp_err;end
   end
+`ifndef SYNTHESIS
+  always @(posedge clk)if(rst_n&&state==SEND&&response&&!command)
+    $fatal(1,"ICB_RESPONSE_BEFORE_COMMAND");
+`endif
 endmodule

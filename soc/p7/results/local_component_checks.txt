@@ -1,0 +1,18 @@
+当前开发版本的组件功能日志摘录
+模拟器：Icarus Verilog 12.0。
+范围：ITCM 适配、五级乘法器和连续点积；不包含新 ICB 主机与整机。
+以下为已执行日志的结果行，个人绝对路径及模拟器退出位置省略。
+
+seed=20304007
+ITCM_PIPELINE_PASS accepted=6656 completed=6652 reset_aborted=4 ports=3200,2370,1082 stalls=4314 reuse_cycles=26 max_pending=3
+seed=7919
+ITCM_PIPELINE_PASS accepted=6581 completed=6577 reset_aborted=4 ports=3104,2371,1102 stalls=4288 reuse_cycles=25 max_pending=3
+seed=65537
+ITCM_PIPELINE_PASS accepted=6688 completed=6684 reset_aborted=4 ports=3208,2384,1092 stalls=4292 reuse_cycles=25 max_pending=3
+seed=104729
+ITCM_PIPELINE_PASS accepted=6691 completed=6687 reset_aborted=4 ports=3218,2359,1110 stalls=4224 reuse_cycles=25 max_pending=3
+MULTIPLY_PIPELINE_PASS checked=16449 aborted=2
+ALL PASS, 64/64 uninterrupted signed dots, abort, ties and saturation
+
+总计：ITCM 完成 26,600 笔、复位取消 16 笔；乘法检查 16,449 组、清除取消 2 组；点积 64 组。
+本地组件使用公开 E203 通用逻辑及功能存储模型。当前没有这份最新源码的厂家带延迟整机通过记录。

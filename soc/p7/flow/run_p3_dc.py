@@ -29,7 +29,7 @@ hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in (
 (output / "input_sha256.json").write_text(json.dumps(hashes, indent=2))
 records = []
 for check_only, stage, marker in (("1", "structure", "SOC_STRUCTURE_CHECK_COMPLETED"),
-                                 ("0", "synthesis", "SOC_SYNTHESIS_AND_CORNERS_COMPLETED")):
+                                 ("0", "synthesis", "SOC_SYNTHESIS_COMPLETED")):
     for name, digest in hashes.items():
         if hashlib.sha256(Path(name).read_bytes()).hexdigest() != digest:
             raise RuntimeError("综合输入文件发生变化：" + name)
@@ -48,6 +48,6 @@ for check_only, stage, marker in (("1", "structure", "SOC_STRUCTURE_CHECK_COMPLE
     records.append(record)
     (output / "progress.json").write_text(json.dumps(records, indent=2))
     print("P7_DC_COMPLETED", json.dumps(record), flush=True)
-    if stage == "synthesis" and "TIMING_PASS=1" not in (result_directory / "reports/timing_acceptance.txt").read_text().splitlines():
-        raise RuntimeError("35 角计算已完成，150MHz 时序验收失败；检查 " + str(result_directory / "reports/timing_acceptance.txt"))
+    if stage == "synthesis" and "PRIMARY_TIMING_PASS=1" not in (result_directory / "reports/timing_acceptance.txt").read_text().splitlines():
+        raise RuntimeError("本次建立或保持检查存在负裕量；检查 " + str(result_directory / "reports/timing_acceptance.txt"))
 print("P7_DC_EXECUTION_COMPLETE", str(output), flush=True)

@@ -30,3 +30,8 @@ Thumbs.db
 # Transfer scratch archives/screenshots are local evidence, not source dependencies.
 /03_过程与分析/05_工具/服务器整理_20261102/*.zip
 /03_过程与分析/05_工具/服务器整理_20261102/*.png
+/soc/p7/work/
+/soc/p7/verification/
+/soc/p7/verified_*.json
+/soc/p7/verified_*.sha256
+/soc/p7/verification_pass.json

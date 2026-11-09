@@ -74,8 +74,7 @@ module tb_soc_gate;
   end
 `endif
 `ifdef GATE_LEVEL
-  string sdf_file;
-  string sdf_mode;
+`ifndef KWT_GATE_FUNCTIONAL
   wire [69:0] synchronous_outputs={ir,irv,ire,ird,load_ready,load_rvalid,load_error,load_rdata};
   reg [69:0] stable_outputs;
   reg output_window=0;
@@ -91,15 +90,15 @@ module tb_soc_gate;
       $fatal(1,"IO_OUTPUT_TIMING_VIOLATION time=%0t before=%h after=%h",$time,stable_outputs,synchronous_outputs);
   end
   initial begin
-    if(!$value$plusargs("SDF=%s",sdf_file))$fatal(1,"SDF required");
-    if(!$value$plusargs("SDF_MODE=%s",sdf_mode))$fatal(1,"SDF_MODE required");
-    case(sdf_mode)
-      "MAXIMUM": input_delay_ns=1.0;
-      "MINIMUM": input_delay_ns=0.1;
-      default: $fatal(1,"SDF_MODE must be MAXIMUM or MINIMUM");
-    endcase
-    $sdf_annotate(sdf_file,dut,,,sdf_mode);
+`ifdef KWT_SDF_MINIMUM
+    input_delay_ns=0.1;
+    $sdf_annotate("soc.sdf",dut,,,"MINIMUM");
+`else
+    input_delay_ns=1.0;
+    $sdf_annotate("soc.sdf",dut,,,"MAXIMUM");
+`endif
   end
+`endif
 `endif
 
   task automatic itcm_write(input integer word_index,input [31:0] data);

@@ -91,10 +91,10 @@ def execute(top, sources, runtime_arguments, required, label=None, extra_definit
 
 unit_sources = [candidate / "tb/tb_itcm_pipeline.sv", candidate / "rtl/e203_itcm_ctrl.v",
                 candidate / "rtl/kwt_itcm_sram_icb_ctrl.sv", candidate / "rtl/kwt_generic_hvt.v",
-                official / "core/e203_clkgate.v"]
+                candidate / "rtl/sirv_sram_icb_ctrl.v", official / "core/e203_clkgate.v"]
 unit_sources += [official / ("general/" + name) for name in (
     "sirv_gnrl_dffs.v", "sirv_gnrl_bufs.v", "sirv_gnrl_icbs.v",
-    "sirv_1cyc_sram_ctrl.v", "sirv_sram_icb_ctrl.v", "sirv_sim_ram.v")]
+    "sirv_1cyc_sram_ctrl.v", "sirv_sim_ram.v")]
 vendor = [Path(name) for name in baseline_manifest if Path(name).suffix == ".v"
           and ("scc40" in Path(name).name.lower() or Path(name).name.startswith("RAMSP"))]
 if len([p for p in vendor if "scc40" in p.name.lower()]) != 1:
@@ -104,8 +104,13 @@ for seed in (20304007, 7919, 65537, 104729):
     execute("tb_itcm_pipeline", unit_sources, ["+SEED=" + str(seed)],
             ["ITCM_PIPELINE_PASS", "reset_aborted=4", "max_pending=3"], "unit_" + str(seed))
 
+execute("tb_mul16_pipeline", [candidate / "tb/tb_mul16_pipeline.sv", candidate / "rtl/kwt_mul16_pipe.sv"],
+        [], ["MULTIPLY_PIPELINE_PASS checked=16449 aborted=2"])
+execute("tb_kwt_stream_dot", [accel / "tb/tb_kwt_stream_dot.sv", candidate / "rtl/kwt_mul16_pipe.sv",
+        accel / "rtl/kwt43_dot.sv", accel / "rtl/kwt_quantize.sv"], [], ["ALL PASS, 64/64"])
+
 replaced = {"e203_ifu.v", "e203_ifu_ift2icb.v", "e203_lsu_ctrl.v", "e203_itcm_ctrl.v", "e203_subsys_top.v", "e203_subsys_nice_core.v",
-            "sram_wrap_64KX32.v", "sram_wrap_32KX64.v", "GENERIC_RVT_SMIC.v", "sirv_mrom_top.v"}
+            "sram_wrap_64KX32.v", "sram_wrap_32KX64.v", "GENERIC_RVT_SMIC.v", "sirv_mrom_top.v", "sirv_sram_icb_ctrl.v"}
 design_sources = []
 for directory in ("core", "general", "subsys", "perips", "debug", "mems", "fab"):
     design_sources += [p for p in sorted((official / directory).rglob("*.v")) if p.name not in replaced]
@@ -113,9 +118,9 @@ for name in ("kwt_quantize.sv", "kwt_mul16_pipe.sv", "kwt_sp_ram.sv", "kwt_rice_
              "kwt43_icb_master.sv", "kwt43_unpack.sv", "kwt43_dot.sv", "kwt43_xram.sv",
              "kwt43_wram.sv", "kwt43_yram.sv", "kwt43_reader.sv", "kwt43_writer.sv",
              "kwt43_compute.sv", "kwt43_core.sv", "kwt_nice_core.sv"):
-    directory = candidate / "rtl" if name in {"kwt43_icb_master.sv", "kwt43_reader.sv", "kwt43_writer.sv", "kwt43_xram.sv", "kwt43_wram.sv"} else accel / "rtl"
+    directory = candidate / "rtl" if name in {"kwt43_icb_master.sv", "kwt43_reader.sv", "kwt43_writer.sv", "kwt43_xram.sv", "kwt43_wram.sv", "kwt43_yram.sv", "kwt43_core.sv", "kwt_mul16_pipe.sv"} else accel / "rtl"
     design_sources.append(directory / name)
-design_sources.append(candidate / "rtl/e203_subsys_nice_core.v")
+design_sources += [candidate / "rtl/e203_subsys_nice_core.v", candidate / "rtl/sirv_sram_icb_ctrl.v"]
 design_sources += [candidate / ("rtl/" + name) for name in ("kwt_generic_hvt.v", "kwt_banked_sram.sv",
                    "sram_wrap_64KX32.v", "sram_wrap_32KX64.v", "kwt_shared_sram.sv", "e203_subsys_top.v")]
 design_sources += [candidate / ("rtl/" + name) for name in ("e203_ifu.v", "e203_ifu_ift2icb.v", "e203_lsu_ctrl.v", "e203_itcm_ctrl.v", "kwt_itcm_sram_icb_ctrl.sv", "kwt_e203_soc_top.v", "sirv_mrom_top.v")]
@@ -150,7 +155,7 @@ for name, log in (("p5", previous_result), (candidate.name, soc_result)):
     performance[name] = measurements
 (candidate / "performance_comparison.json").write_text(json.dumps(performance, indent=2))
 accelerator_sources = [candidate / "rtl" / Path(name).name
-                       if Path(name).name in {"kwt43_icb_master.sv", "kwt43_reader.sv", "kwt43_writer.sv", "kwt43_xram.sv", "kwt43_wram.sv"}
+                       if Path(name).name in {"kwt43_icb_master.sv", "kwt43_reader.sv", "kwt43_writer.sv", "kwt43_xram.sv", "kwt43_wram.sv", "kwt43_yram.sv", "kwt43_core.sv", "kwt_mul16_pipe.sv", "sirv_sram_icb_ctrl.v"}
                        else Path(name) for name in baseline_manifest]
 for top in ("tb_kwt_integrated", "tb_kwt_integrated_wait", "tb_kwt_integrated_zero", "tb_kwt_integrated_public"):
     execute(top, accelerator_sources, ["+VEC_DIR=" + str(vectors)],

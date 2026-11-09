@@ -1,0 +1,186 @@
+E203 + NICE 嵌入式比赛优化交接说明
+日期：2026-11-09
+交付性质：当前开发源码、测试、综合脚本和实际记录；尚未完成本版整机与时序验收。
+
+一、接手目标与当前指令
+
+先满足本科生组功能、150 MHz 和新增面积要求。用户当前不要求达到每秒几千项任务，允许用部分吞吐量换取简单、可验证的接口结构。
+保持 NICE 自定义指令入口，以较小 CPU 改动为前提，优先优化加速器和外围电路。CPU 自带 GPIO 与复位结构保留；SRAM 时钟相位保持，通过前置寄存器组织请求。
+当前暂停 DC，不以反复综合代替 RTL 设计分析。先写 RTL、完善 TB、实际验证，再进入综合。
+本次上传 GitHub 是源码交接授权，没有启动服务器新任务。
+完整运行与对话要求见本目录 AGENTS.md。用户直接指令优先于仓库旧固定格式模板。
+
+二、赛题要求
+
+权威来源为仓库 01_核心参考/赛题介绍.pdf 和 赛题介绍_原文.txt，以下页码为印刷页码。
+第 3 页：指定 E203、总线和外设；512 KB 共享 SRAM；150 MHz 主时钟，32.768 kHz 常开域；加速器可通过 System Bus 或 NICE 接入。当前采用 NICE 是用户选择，不能写成赛题禁止 System Bus。
+第 3 页：内部存储用指定 16×128、16×1024、16×4096 单端口或双端口 SRAM 宏组合；分层装载参数，不增加 DDR。工作包括 RTL、仿真、SoC 集成和综合，不包括布局布线、物理验证和流片。
+第 4—8 页：本科必做长度 64 点积、偏置与数值转换，以及 Y=XW+b；X 为 99×64，W 为 64×256，Y 为 99×256。支持依次切换 12 层的参数，完成驱动、装载、控制、写回和整机验证。GELU、第二线性层、注意力属于本科选做。
+第 5 页：采用 ARM-software/keyword-transformer 提交 237e4097、models_data_v2_12_labels/kwt1/best_weights；不重训、微调、蒸馏或改变维度与基本运算。允许无梯度标定和自主数值格式。
+第 6—7、10 页：Speech Commands V2；训练划分用于标定、验证划分用于调试，测试划分不能调参。600 样本软件数值评测的本科最差层 NRMSE≤3%，分母为浮点参考 RMS、下限 1e-8。RTL 与数值模型逐位一致。
+第 11 页：统一 150 MHz，禁止隐藏违例的无效约束。12 个本科性能任务覆盖 12 层参数；从开始装载输入/参数到结果全部写回计时，清空任务数据与参数缓存，总线等待和 E203 调度均计入。
+第 11—12 页：吞吐量=完成任务数/总时间；没有必须达到 5000 tasks/s 的门槛。功耗由同一计时窗口的 SAIF/VCD 估算，统计 E203、加速器、互连和 SRAM，检查活动覆盖；未标注电路和 SRAM 不能按零功耗。单任务能耗=平均功耗×总时间/任务数。
+第 12 页：新增的加速器、接口逻辑、内部 SRAM 合计≤2.25 mm²；复用 CPU、512 KB 共享 SRAM、固定总线和外设单列。宏面积不能漏计或重复。效率评分先满足功能、精度、时序和面积，所有指标来自同一冻结配置。
+第 13 页：交付 RTL、驱动、TB、软件数值模型、参数转换、数值格式、SDC、网表、功能/时序/面积、活动与功耗、吞吐与能耗、版本校验及创新对照材料。
+
+三、版本与文件入口
+
+基线提交：5530ae66d132c73af3dac3683a995a456bd53afa，即已交付的 P7。
+当前分支：codex/e203-nice-rtl。
+本目录名仍为 soc/p7，以提交号及文件清单区分本轮修改。
+不采用队友后来切换控制寄存器/System Bus 主机以及网表修补的版本。
+
+rtl/：本版覆盖 RTL。
+tb/：ITCM、真实 CPU 启动、门级、乘法、新 ICB 测试。
+firmware/：NICE 固件源码、链接文件与 firmware.hex。
+reference/：用于核对官方 CPU、ROM、复位及原集成顶层的基准，不作为修改区。
+flow/paths.tcl：工程、工具、库和结果的统一路径入口。
+flow/run_local_units.py：本地 Icarus 组件测试；--suite 可选 itcm、multiply、dot、icb 或 all。
+flow/run_p1_verification.py：服务器完整功能入口，历史文件名中的 p1 不决定当前源码版本。
+flow/verify_p1_for_dc.py：检查规定测试集合、日志、实际编译源码和输入哈希。
+flow/dc_synth.tcl：设置、约束、一次综合、报告。
+flow/run_p3_dc.py：结构检查通过后启动完整综合；当前不执行。
+flow/run_p1_sdf.py：网表功能及带延迟整机检查。
+flow/update_package_manifest.py：生成或 --check 检查交付文件清单。
+results/acceptance.json：当前版实际验证状态。
+results/local_component_checks.txt：已执行组件结果摘录，去除个人路径。
+results/p6_reference.json：历史 P6 最终报告摘要，不作为当前版通过证明。
+package_manifest.json：交付清单，排除可编辑路径配置。
+results/source_sha256.json：包含交付时 paths.tcl 的完整来源清单。
+../../v4.3/rtl、tb、vec：同仓库加速器依赖；稀疏检出时应确认向量已获取。
+
+交接时以这份分支内容为准。原工作目录内 nice_rtl_r1.zip/r2.zip 均早于最新 ICB 改动，不用它们覆盖当前文件。旧 active_task.json 的终端归属与执行状态已经过期。
+
+四、参考规范和当前 DC 脚本
+
+用户参考为其六级流水 CPU 集创赛工程的 synth/dc_synth.tcl，分为 LIB/SRAM/HDL/INC、CONSTRAINTS、COMPILE、POST-COMPILE CHECKS & REPORTS。本轮已完整读取该参考。
+参考命令保存在 reference/dc_reference_tsmc65.txt，只供比较，不执行。
+沿用路径、链接库、analyze/elaborate/link、时钟/I/O/驱动/负载、SRAM 路径组、一次综合和报告的结构。
+参考脚本的 TSMC65 库、WireAreaLowkCon、INVD12、5.75 ns、set_load 1 属于参考工程，SMIC40 不能照搬。
+用户已明确允许 SMIC40 RC、JTAG、AON、多时钟及必要检查。
+当前只用一次 compile_ultra -no_autoungroup，保留 RTL 层次；无 retime、增量综合、insert_buffer、change_link 或重接网表。
+
+SOURCES 明确选择每个模块的一份实现：本目录覆盖模块替代官方同名副本，其余官方源码继续读取。综合保留 SRAM 实例并链接 .db；功能仿真读取厂家模型。
+主时钟 150 MHz；AON 32.768 kHz；JTAG 10 MHz，TCK 上升沿采样、下降沿更新 TDO，输入预算参考 TCK 下降沿，跨域根据真实同步结构约束。
+setup/hold uncertainty 为 0.300/0.100 ns；input max/min 为 1.000/0.100 ns；output max/min 为 1.000/-0.100 ns。
+150 MHz 和 AON 频率来自赛题，JTAG 及 I/O/uncertainty 来自项目评估配置。不能补写为赛题规定或已测板级参数，也不能为了去掉违例随意缩小。
+驱动 INV1_12TH40，输入边沿 0.100 ns；七角最大输入电容 0.000849 pF，四个输入等效负载 0.003396 pF。全设计 max_transition 1.270 ns，具体库端点更严格的限制仍适用。
+主要建立条件 SS 0.99 V/-40℃、CMAX；保持 FF 1.21 V/125℃、CMIN，来自 P6 极值。PRIMARY_TIMING_PASS 仅检查当前主最大/最小条件，其他条件和电气规则需分别验收。
+
+五、工艺调查和 P6 的已知问题
+
+七个 PVT 为 SS 0.99 V/-40℃、125℃，TT 1.10 V/25℃、125℃，FF 1.21 V/-40℃、0℃、125℃。
+七 PVT×五 RC 的 35 组分析已完成；缺少的小 SRAM .db 从对应原始 Liberty 转换，原件保持。
+HVT basic 库没有 WLM。SMIC40 1P9M_2TM 的技术文件、Milkyway、TLUPlus 与层映射已经补齐，不必重新从整个 PDK 开始搜索。
+
+P6 的 35 组 setup 全通过、hold 全失败。最差 setup +0.0000858307 ns，为 DTCM SRAM 输出到 reader/header_addr_reg_8_；最差 hold 约 -0.14004 ns，为 reader/saved_values_reg_54_ 到 X SRAM stripe_3/D[6]。
+P6 最终结果来自旧综合流程，不能用于证明当前精简脚本通过。
+35 组报告合并有 391 个 hold 端点：X 48、W 207、Y 74、ITCM 51、DTCM 1、顶层 10，共享 SRAM 0。主映射双库报告单独有 401 个，条件不同。
+顶层为 sys_rst_n、GPIOB o_oe[20,24,25]、o_oval[20,21,24,25,26,27]。sys_rst_n 最差 -0.02651589 ns，GPIOB 最差 -0.00892240 ns。保持 CPU 自带 GPIO/复位，不据此直接增加外设寄存级。
+P6 主报告有 4242 条 max_transition、117 条 max_capacitance，计数单位为报告条目。values[29] 边沿限制约 0.76 ns、实际 4.01 ns；values[12] 电容限制 0.06 pF、实际 0.13 pF。检查数据广播的实际负载和分组结构。
+P6 总 cell area 约 4.001842 mm²，包含平台，不能直接与新增面积预算对比。当前版没有新面积和整机功耗结果。
+
+边沿违例指信号在库规定电压区间内翻转过慢；电容违例指驱动端的接收端和连线负载超过上限。它们与采用上升沿还是下降沿触发是不同检查。
+当前输出保持预算由 output min -0.100 ns 和 hold uncertainty 0.100 ns 形成，需核对 GPIO 的真实外部接收关系。sys_rst_n 由集成顶层的 external_reset_sync 导出，应与 CPU 内部复位分别检查。
+
+六、SRAM 前置寄存器的理由和边界
+
+本工程 RAMSP 宏在上升沿采样，X/W/Y 的 CLK 仍直接接原时钟。下降沿用于宏前的请求寄存器；SRAM 并没有统一的“下降沿取指”要求。
+P6 一条 hold 路径的数据到达约 0.13994 ns，宏保持约 0.18148 ns，加 uncertainty 0.100 ns，共需 0.28148 ns，缺口约 0.14154 ns。
+同上升沿增加一拍寄存会改变延迟，但新寄存器到宏仍是同沿短路径，不能凭加一拍认定 hold 已解决。
+当前外部接口方向为：上升沿形成或保存请求，下降沿寄存地址/数据/掩码/使能，随后上升沿由 SRAM 采样。
+150 MHz 半周期约 3.333 ns。两段半周期要扣 clock-to-Q、互连、setup 和 uncertainty，译码和选择逻辑应保持短。地址、数据、有效、页选择和响应来源同步对齐。
+P6 加速器没有这层；已交付 P7 已对 X/W 添加，本轮进一步对齐读有效，并增加 Y 接口实现。
+
+七、当前源码变化与实际验证
+
+相对 P7：
+sirv_sram_icb_ctrl.v：通用适配草稿，完整请求寄存、下降沿驱动、响应队列、内部两个在途额度。保留同相 e203_clkgate，但修改门控使能与队列时序。其范围超过单纯前置寄存器，最小外围方案需单独审查。
+kwt43_xram.sv、kwt43_wram.sv：读有效来自同一次下降沿请求采样。
+kwt43_yram.sv：结果 SRAM 请求下降沿寄存，读页对齐，增加复位。
+kwt43_core.sv：向 Y SRAM 传递复位，调度保持。
+kwt_mul16_pipe.sv：五级 16 位有符号乘法，部分积和分段求和，保持 32 位结果与 valid/last/clear。
+kwt43_icb_master.sv：单事务四状态，命令/响应分别寄存，握手由寄存状态产生。
+本轮没有继续改动 e203_*、kwt_e203_soc_top.v 或固件。P7 本身已含取指/ITCM 响应与 LSU 请求适配，不能写成与官方 CPU 完全相同。
+
+已实际执行：ITCM 四随机种子共完成 26,600 笔、复位取消 16 笔；乘法 16,449 组、clear 取消 2 组；连续点积 64/64。
+新 ICB TB 已写入，尚未运行。设计覆盖 1000 次同拍响应、1000 次延迟响应、暂停稳定性、错误位和两种复位中止。这些数字是测试目标，不是通过结果。
+最新 X/W/Y 组合、完整真实 CPU、12 层任务、厂家带延迟整机还没有本版通过记录。
+P6 的旧 10 项测试、12 任务、58,547 个检查字和两次启动只属于 P6。
+
+八、服务器工作方式与可迁移目录
+
+本地编辑和组件验证；完整官方平台、模型与 EDA 工具留在比赛服务器。
+既有协调方式：RTL 会话负责设计与验证，DC 监测会话负责服务器运行。当前监测会话仅只读 P6 报告，同一终端保持单一操作者。
+已验证通道为 FTP 上传 Desktop、VNC 操作终端、OCR 读取必要摘要。没有可直接照用的已验证 SSH 工作通道。
+平台禁止主动下载服务器文件，剪贴板回传保持关闭。原始工艺、网表和波形不随此公开分支外发。
+
+访问工具在本地私人工作目录保存，公开说明使用 ACCESS_ROOT 代表该目录：
+ACCESS_ROOT/outputs/vnc-workflow/使用说明.txt
+ACCESS_ROOT/outputs/vnc-workflow/vnc_terminal.ps1
+ACCESS_ROOT/outputs/server-access/server_access.ps1（-Action push）
+ACCESS_ROOT/outputs/vnc-workflow/connection.json
+PRIVATE_MONITOR/work/read_p5_report_windows_dns.ps1（目前仍使用该名字）
+依赖目录 ACCESS_ROOT/work/vnc-deps 和 ocr-deps，包含 vncdotool、Twisted、RapidOCR。
+凭据由系统加密保存在私人目录，需用户在接手机器上配置，不能公开。
+
+先观察终端焦点，输入并核对命令，再单独回车。OCR 失败先查 input_sent，已发出的命令不要重复执行。工具 completed 仅说明操作完成，程序成功检查退出码和明确结果。
+每次上传使用新文件名、检查长度，并在服务器计算 SHA256 与本地比较；匹配后解包到独立目录，不覆盖旧输入。
+新 NICE 包此前未上传；当前不自动上传或启动任何服务器工作。
+
+服务器统一使用登录后的家目录 ~，无需写死账号：
+~/soc_20261107/official：官方 E203、mem_gen。
+~/soc_20261107/rtl：原集成平台。
+~/v4.3/rtl、tb、vec/streams/worst：加速器依赖和向量。
+~/soc_20261107/candidate_e2：基准 source_manifest.json。
+~/soc_20261107/candidate_astra_p5：同条件比较源码与 verification/tb_soc_boot/source_manifest.json。
+~/soc_20261107/candidate_astra_p6：P6 功能验证输入和结果。
+~/soc_20261107/astra_runs/astra_p6r1_20261108_180156_138277：P6 最终 netlist/、reports/、corner_checks/。
+~/shared/libraries：标准单元与小 SRAM。
+~/soc_20261107/astra_sram_corners_g5/libraries：补充 SRAM .db。
+~/soc_20261107/astra_physical_technology_g12/technology.tf：技术文件。
+~/soc_20261107/astra_physical_library_g14/reference：Milkyway。
+~/soc_20261107/astra_physical_inputs_g8/rc/1P9M_2TM：TLUPlus。
+~/soc_20261107/astra_arm_physical_g10/1P9M_2TM/tluplus.map：层映射。
+/storage1/admin_public_dir/SMIC40_2025 和 SRAM_Lib_2025：公共只读工艺目录。
+
+工具：DC /eda/synopsys/dc/dc_2022.03-SP5-5/bin/dc_shell；VCS /eda/synopsys/vcs/vcs_2020.03-SP2-6/bin/vcs；Python /bin/python3（3.6.8）；Tcl /bin/tclsh（8.5.13）。
+本地组件环境为 WSL Ubuntu-24.04、Icarus 12.0、vvp、python3；--official 指向公开 E203 的 rtl/e203 目录。
+迁移完整工程后编辑 paths.tcl，PIPELINE 自动从配置位置计算；其他根目录集中配置。旧清单路径用 MANIFEST_PATH_MAP 显式映射，内容哈希继续核对。
+完整功能脚本依赖 E2/P5 的清单和源码，只复制 RTL/DC 文件不足以运行该入口。原私有交接材料保留实际本机路径，公开文件使用相对目录和占位根目录。
+
+九、接下来的实施顺序
+
+1. 固定当前源码和基线。读取本目录规则、交接与差异，保留当前开发文件。依据已有 P6 报告列出具体端点、原因和对应 RTL，不重新扫描已查明的 PDK。
+2. 先运行新 ICB 测试。检查零等待/延迟响应、暂停稳定、顺序、错误、复位取消，无丢失和重复。
+3. 补齐 X/W/Y 的银行地址、写掩码、读有效、尾行屏蔽、页冲突、跨页读写、复位禁止写入；TCM 适配检查 32/64 位、字节写、门控停止恢复、队列满和各阶段复位。审查控制器草稿范围，优先外围寄存边界。
+4. 处理 values 等广播负载，按实际消费银行组织请求寄存和局部控制。不能添加无功能延时链或强留无用逻辑。当前阵列为 8×16；优先完成接口，若负载/面积仍要求降并行度，则同步修改 tile、行尾、写回与测试，保持矩阵和数值契约。当前没有选定新阵列尺寸。
+5. 保留 CPU GPIO/复位，核对真实接收时钟与 I/O 预算。对齐五级乘法器的 last、行号、页切换、提交和清除。
+6. 完整结构与功能检查：无意外锁存、多驱动、握手环、悬空有效信号；真实 ROM 启动、固件、NICE、TCM/共享 SRAM、12 层任务、四种总线条件、错误、中止、重启、压缩指令跨界和尾行。
+7. 新 ICB/SRAM 测试进入完整功能脚本及 verify_p1_for_dc.py 的规定集合；冻结源码、向量、日志、路径和校验值。当前默认完整脚本有 12 项，尚未含新 ICB 独立测试，不能据此宣布全部完成。
+8. 完成半周期与响应路径预算、门控/复位/跨域审查，再向用户说明真实结果。用户恢复 DC 后，运行结构检查和一次综合；源码与仿真一致，原预算保持。
+9. 对同一网表做 35 组只读分析，检查 setup/hold、边沿、电容、未约束路径、连接和面积。35 组分析不修改电路。执行同版 RTL/网表等价、网表功能及 SDF 整机，保留厂家检查。
+10. 同一冻结版本测完整装载到写回的周期、吞吐量、活动覆盖、功耗、能耗与新增面积，更新验收记录后提交比赛材料。
+
+RTL 仿真负责功能、协议和寄存边界；纳秒级时序与电气规则由映射和互连分析验收。不得用组件通过或主条件正裕量替代整机全部要求。
+
+十、运行入口与交付检查
+
+本地组件（Linux/WSL，在本目录）：
+python3 flow/run_local_units.py --suite icb
+python3 flow/run_local_units.py --suite itcm --official /配置的公开E203/rtl/e203
+python3 flow/run_local_units.py --suite multiply
+python3 flow/run_local_units.py --suite dot --accel /配置的v4.3
+
+服务器完整功能入口，先准备全部依赖并完成新测试接入：
+python3 flow/run_p1_verification.py --paths flow/paths.tcl
+
+当前禁止执行的综合入口，用户恢复综合后才使用：
+python3 flow/run_p3_dc.py --paths flow/paths.tcl
+
+交付清单：
+python3 flow/update_package_manifest.py
+python3 flow/update_package_manifest.py --check
+
+清单刷新只记录当前文件，不声明测试通过。已有三个组件没有源码变化时不重复测试；优先新增 ICB 和 SRAM 边界检查。
+完整服务器日志、受限模型、凭据、屏幕记录和私人路径留在原环境；本分支包含可公开源码、规范、接手步骤及已核对的结果摘要。

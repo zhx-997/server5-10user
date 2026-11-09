@@ -24,6 +24,9 @@ module kwt43_xram(
     kwt_sp_ram #(.AW(10)) ram(.clk(clk),.en(request_enable),.we(request_write),
       .addr(request_address),.wdata(request_data),.rdata(rd_data[16*s+:16]));
   end endgenerate
+  reg read_sampled;
+  always @(negedge clk or negedge rst_n)
+    if(!rst_n)read_sampled<=0;else read_sampled<=rd_en;
   always @(posedge clk or negedge rst_n)
-    if(!rst_n)rd_valid<=0;else rd_valid<=rd_en;
+    if(!rst_n)rd_valid<=0;else rd_valid<=read_sampled;
 endmodule
